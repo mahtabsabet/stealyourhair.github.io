@@ -432,6 +432,10 @@ function drawPlayerVehicle(x, y) {
     ctx.restore();
 }
 
+// ==================== SPRITES ====================
+const flamethrowerSprite = new Image();
+flamethrowerSprite.src = 'sprites/flamethrower.png';
+
 // ==================== PLAYER ====================
 const player = {
     x: 400,
@@ -447,6 +451,7 @@ const player = {
     lastArrowTime: 0,
     invulnerable: false,
     invulnerableUntil: 0,
+    facingRight: true,
 
     reset() {
         this.x = 400;
@@ -472,6 +477,10 @@ const player = {
             dx *= 0.707;
             dy *= 0.707;
         }
+
+        // Track facing direction
+        if (dx > 0) this.facingRight = true;
+        else if (dx < 0) this.facingRight = false;
 
         // Apply movement
         this.x += dx * this.speed;
@@ -681,6 +690,25 @@ const player = {
         ctx.beginPath();
         ctx.arc(this.x, this.y + 3, 6, 0.2, Math.PI - 0.2);
         ctx.stroke();
+
+        // Draw equipped flamethrower sprite
+        if (equippedWeapon === 'flamethrower' && flamethrowerSprite.complete) {
+            const w = 56;
+            const h = 33;
+            const offsetY = 5; // align to player mid-lower area (arm height)
+            ctx.save();
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            if (this.facingRight) {
+                // Image fires left; flip it so barrel points right
+                ctx.scale(-1, 1);
+                ctx.drawImage(flamethrowerSprite, -(this.x + this.width / 2 + w), this.y - h / 2 + offsetY, w, h);
+            } else {
+                ctx.drawImage(flamethrowerSprite, this.x - this.width / 2 - w, this.y - h / 2 + offsetY, w, h);
+            }
+            ctx.restore();
+        }
 
         ctx.restore();
         ctx.globalAlpha = 1;
