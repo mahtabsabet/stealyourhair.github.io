@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STEAL YOUR HAIR!</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <h1 id="game-title">STEAL YOUR HAIR!</h1>
+
+        <!-- UI Container -->
+        <div id="ui-container">
+            <div id="hp-display"></div>
+            <div id="hair-points-display">Hair Points: 0</div>
+            <button id="shop-access-button" class="shop-access-button" style="display: none;">SHOP</button>
+            <div id="boss-health-bar-container" style="display: none;">
+                <div id="boss-name"></div>
+                <div id="boss-health-bar">
+                    <div id="boss-health-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Canvas -->
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <!-- Game Screens -->
+        <div id="title-screen" class="screen">
+            <h2>STEAL YOUR HAIR!</h2>
+            <p>Defeat bosses and steal their hair!</p>
+            <div style="margin: 20px 0; font-size: 0.9em; text-align: left;">
+                <p><strong>Controls:</strong></p>
+                <p>🎮 Move: WASD</p>
+                <p>⚔️ Melee Attack: SPACE</p>
+                <p>🏹 Shoot Arrow: SHIFT or E</p>
+            </div>
+            <button id="start-button" class="game-button">START GAME</button>
+        </div>
+
+        <div id="shop-screen" class="screen" style="display: none;">
+            <h2>HAIR SHOP</h2>
+            <div id="shop-hair-points"></div>
+
+            <!-- Shop Tabs -->
+            <div class="shop-tabs">
+                <button class="shop-tab active" data-tab="upgrades">⚡ Upgrades</button>
+                <button class="shop-tab" data-tab="weapons">⚔️ Weapons</button>
+                <button class="shop-tab" data-tab="cosmetics" id="cosmetics-tab" style="display: none;">✨ Cosmetics</button>
+            </div>
+
+            <!-- Upgrades Tab -->
+            <div id="tab-upgrades" class="shop-tab-content active">
+                <div class="shop-grid">
+                    <div class="upgrade-item">
+                        <h3>+1 Max HP</h3>
+                        <p>Grow more hair to take more hits!</p>
+                        <button class="upgrade-button" data-upgrade="maxhp" data-cost="3">Buy (3 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item">
+                        <h3>Speed Boost</h3>
+                        <p>Move faster to dodge attacks!</p>
+                        <button class="upgrade-button" data-upgrade="speed" data-cost="4">Buy (4 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item">
+                        <h3>Faster Attack</h3>
+                        <p>Attack more frequently!</p>
+                        <button class="upgrade-button" data-upgrade="attack" data-cost="5">Buy (5 Hair Points)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Weapons Tab -->
+            <div id="tab-weapons" class="shop-tab-content">
+                <div class="shop-grid">
+                    <div class="upgrade-item weapon-item">
+                        <h3>🗡️ Sword</h3>
+                        <p>Melee weapon with longer reach!</p>
+                        <p class="unlock-text">Unlocked after Boss 1</p>
+                        <button class="weapon-button" data-weapon="sword" data-cost="6">Buy (6 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item weapon-item">
+                        <h3>🔫 Blaster</h3>
+                        <p>Rapid-fire energy weapon!</p>
+                        <p class="unlock-text">Unlocked after Boss 2</p>
+                        <button class="weapon-button" data-weapon="blaster" data-cost="10">Buy (10 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item weapon-item">
+                        <h3>⚡ Lightning Staff</h3>
+                        <p>Zaps enemies with electricity!</p>
+                        <p class="unlock-text">Unlocked after Boss 3</p>
+                        <button class="weapon-button" data-weapon="lightning" data-cost="15">Buy (15 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item weapon-item">
+                        <h3>🔥 Flamethrower</h3>
+                        <p>Burn everything in your path!</p>
+                        <p class="unlock-text">Unlocked after Boss 3</p>
+                        <button class="weapon-button" data-weapon="flamethrower" data-cost="18">Buy (18 Hair Points)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cosmetics Tab -->
+            <div id="tab-cosmetics" class="shop-tab-content">
+                <div class="shop-grid">
+                    <div class="upgrade-item cosmetic-item">
+                        <h3>🔥 Fire Hair</h3>
+                        <p>Blazing red and orange flames!</p>
+                        <button class="cosmetic-button" data-cosmetic="hair" data-value="fire" data-cost="8">Buy (8 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item cosmetic-item">
+                        <h3>🌈 Rainbow Hair</h3>
+                        <p>Colorful gradient goodness!</p>
+                        <button class="cosmetic-button" data-cosmetic="hair" data-value="rainbow" data-cost="10">Buy (10 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item cosmetic-item">
+                        <h3>⚡ Mohawk</h3>
+                        <p>Single epic spike in the center!</p>
+                        <button class="cosmetic-button" data-cosmetic="hair" data-value="mohawk" data-cost="7">Buy (7 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item cosmetic-item">
+                        <h3>🛹 Skateboard</h3>
+                        <p>Ride in style!</p>
+                        <button class="cosmetic-button" data-cosmetic="vehicle" data-value="skateboard" data-cost="12">Buy (12 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item cosmetic-item">
+                        <h3>🚗 Cool Car</h3>
+                        <p>Drive around the arena!</p>
+                        <button class="cosmetic-button" data-cosmetic="vehicle" data-value="car" data-cost="20">Buy (20 Hair Points)</button>
+                    </div>
+                    <div class="upgrade-item cosmetic-item">
+                        <h3>🛸 Hoverboard</h3>
+                        <p>Float above the ground!</p>
+                        <button class="cosmetic-button" data-cosmetic="vehicle" data-value="hoverboard" data-cost="15">Buy (15 Hair Points)</button>
+                    </div>
+                </div>
+            </div>
+
+            <button id="continue-button" class="game-button">CONTINUE TO NEXT BOSS</button>
+            <button id="back-button" class="game-button" style="display: none;">BACK</button>
+        </div>
+
+        <div id="win-screen" class="screen" style="display: none;">
+            <h2>YOU STOLE THEIR HAIR!</h2>
+            <p id="final-hair-points"></p>
+            <p style="color: #4caf50; font-size: 1.1em; margin-top: 10px;">✨ Your upgrades and Hair Points will carry over! ✨</p>
+            <button id="play-again-button" class="game-button">PLAY AGAIN</button>
+        </div>
+
+        <div id="lose-screen" class="screen" style="display: none;">
+            <h2>YOUR HAIR WAS STOLEN!</h2>
+            <p>You were defeated...</p>
+            <button id="restart-button" class="game-button">RETRY BOSS</button>
+        </div>
+
+        <!-- Floating Text Container -->
+        <div id="floating-texts"></div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
