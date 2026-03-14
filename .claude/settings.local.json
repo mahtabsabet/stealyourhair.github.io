@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check /Users/mahtabsabet/steal-your-hair/game.js)"
+    ]
+  }
+}

@@ -7,6 +7,7 @@ const GAME_STATES = {
     SHIP_AREA: 'SHIP_AREA',
     STREAM_AREA: 'STREAM_AREA',
     GUARD_AREA: 'GUARD_AREA',
+    BIG_TIME_WORLD: 'BIG_TIME_WORLD',
     WIN: 'WIN',
     LOSE: 'LOSE'
 };
@@ -47,7 +48,10 @@ let questState = {
     hasShipComponent: false,
     shipRepaired: false,
     guardDefeated: false,
-    porcupinesDefeated: false
+    porcupinesDefeated: false,
+    iceBlockHP: 5,
+    iceBlockBroken: false,
+    computerAnswered: false
 };
 
 // ==================== CANVAS SETUP ====================
@@ -117,6 +121,21 @@ class Arrow {
         if (boss && checkCollision(this, boss)) {
             boss.takeDamage(1);
             this.active = false;
+        }
+
+        // Check ice block collision
+        if (gameState === GAME_STATES.BIG_TIME_WORLD && !questState.iceBlockBroken) {
+            const iceBlockObj = { x: 325, y: 200, width: 150, height: 130 };
+            if (checkCollision(this, iceBlockObj)) {
+                questState.iceBlockHP = Math.max(0, questState.iceBlockHP - 1);
+                if (questState.iceBlockHP <= 0) {
+                    questState.iceBlockBroken = true;
+                    showFloatingText('Ice Shattered!', 400, 230);
+                } else {
+                    showFloatingText('CRACK!', 400, 230);
+                }
+                this.active = false;
+            }
         }
     }
 
@@ -244,6 +263,21 @@ class Projectile {
         if (boss && checkCollision(this, boss)) {
             boss.takeDamage(this.damage);
             this.active = false;
+        }
+
+        // Check ice block collision
+        if (gameState === GAME_STATES.BIG_TIME_WORLD && !questState.iceBlockBroken) {
+            const iceBlockObj = { x: 325, y: 200, width: 150, height: 130 };
+            if (checkCollision(this, iceBlockObj)) {
+                questState.iceBlockHP = Math.max(0, questState.iceBlockHP - this.damage);
+                if (questState.iceBlockHP <= 0) {
+                    questState.iceBlockBroken = true;
+                    showFloatingText('Ice Shattered!', 400, 230);
+                } else {
+                    showFloatingText('CRACK!', 400, 230);
+                }
+                this.active = false;
+            }
         }
     }
 
@@ -533,6 +567,19 @@ const player = {
                     p.takeDamage(2);
                 }
             });
+            // Check ice block
+            if (gameState === GAME_STATES.BIG_TIME_WORLD && !questState.iceBlockBroken) {
+                const iceBlockObj = { x: 325, y: 200, width: 150, height: 130 };
+                if (checkCollision(attackBox, iceBlockObj)) {
+                    questState.iceBlockHP = Math.max(0, questState.iceBlockHP - 2);
+                    if (questState.iceBlockHP <= 0) {
+                        questState.iceBlockBroken = true;
+                        showFloatingText('Ice Shattered!', 400, 230);
+                    } else {
+                        showFloatingText('CRACK!', 400, 230);
+                    }
+                }
+            }
 
             // Visual feedback - draw sword
             ctx.save();
@@ -559,6 +606,19 @@ const player = {
                     p.takeDamage(1);
                 }
             });
+            // Check ice block
+            if (gameState === GAME_STATES.BIG_TIME_WORLD && !questState.iceBlockBroken) {
+                const iceBlockObj = { x: 325, y: 200, width: 150, height: 130 };
+                if (checkCollision(attackBox, iceBlockObj)) {
+                    questState.iceBlockHP = Math.max(0, questState.iceBlockHP - 1);
+                    if (questState.iceBlockHP <= 0) {
+                        questState.iceBlockBroken = true;
+                        showFloatingText('Ice Shattered!', 400, 230);
+                    } else {
+                        showFloatingText('CRACK!', 400, 230);
+                    }
+                }
+            }
 
             // Visual feedback
             ctx.save();
@@ -786,7 +846,7 @@ class Boss {
 
         setTimeout(() => {
             currentBoss++;
-            if (currentBoss >= 3) {
+            if (currentBoss >= 4) {
                 hasBeatenGame = true; // Unlock cosmetics!
                 saveGame();
                 gameState = GAME_STATES.WIN;
@@ -796,6 +856,13 @@ class Boss {
             } else if (currentBoss === 1) {
                 // After Boss 1, go to MAP (world exploration)
                 gameState = GAME_STATES.MAP;
+                hideAllScreens();
+                document.getElementById('boss-health-bar-container').style.display = 'none';
+            } else if (currentBoss === 3) {
+                // After Boss 3 (Swords), enter The Big Time World
+                player.x = 400;
+                player.y = 450;
+                gameState = GAME_STATES.BIG_TIME_WORLD;
                 hideAllScreens();
                 document.getElementById('boss-health-bar-container').style.display = 'none';
             } else {
@@ -1401,6 +1468,191 @@ class Swords extends Boss {
     }
 }
 
+// ==================== BOSS 4: MUTANT HAIR ====================
+class MutantHair extends Boss {
+    constructor() {
+        super('Mutant Hair', 12, 15);
+        this.width = 120;
+        this.height = 120;
+        this.chargeTimer = 0;
+        this.isCharging = false;
+        this.chargeSpeed = 0;
+        this.chargeDir = { x: 0, y: 0 };
+        this.whipTimer = 0;
+        this.isWhipping = false;
+        this.whipAngle = 0;
+        this.whipProgress = 0;
+        this.hairAngle = 0;
+    }
+
+    update(deltaTime) {
+        this.hairAngle += 0.05;
+        this.chargeTimer += deltaTime;
+        this.whipTimer += deltaTime;
+
+        if (!this.isCharging) {
+            // Slowly track player
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist > 0) {
+                this.x += (dx / dist) * 1.5;
+                this.y += (dy / dist) * 1.5;
+            }
+        }
+
+        // Bounce off arena walls
+        if (this.x - this.width/2 < ARENA.x) this.x = ARENA.x + this.width/2;
+        if (this.x + this.width/2 > ARENA.x + ARENA.width) this.x = ARENA.x + ARENA.width - this.width/2;
+        if (this.y - this.height/2 < ARENA.y) this.y = ARENA.y + this.height/2;
+        if (this.y + this.height/2 > ARENA.y + ARENA.height) this.y = ARENA.y + ARENA.height - this.height/2;
+
+        // Charge attack every 3 seconds
+        if (this.chargeTimer > 3000 && !this.isCharging) {
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            this.chargeDir = { x: dx / dist, y: dy / dist };
+            this.isCharging = true;
+            this.chargeSpeed = 8;
+            this.chargeTimer = 0;
+        }
+
+        if (this.isCharging) {
+            this.x += this.chargeDir.x * this.chargeSpeed;
+            this.y += this.chargeDir.y * this.chargeSpeed;
+            this.chargeSpeed -= 0.2;
+
+            if (this.x - this.width/2 < ARENA.x || this.x + this.width/2 > ARENA.x + ARENA.width) {
+                this.chargeDir.x *= -1;
+                this.x = Math.max(ARENA.x + this.width/2, Math.min(ARENA.x + ARENA.width - this.width/2, this.x));
+            }
+            if (this.y - this.height/2 < ARENA.y || this.y + this.height/2 > ARENA.y + ARENA.height) {
+                this.chargeDir.y *= -1;
+                this.y = Math.max(ARENA.y + this.height/2, Math.min(ARENA.y + ARENA.height - this.height/2, this.y));
+            }
+
+            if (this.chargeSpeed <= 0) {
+                this.isCharging = false;
+                this.chargeSpeed = 0;
+            }
+        }
+
+        // Hair whip attack every 2.5 seconds
+        if (this.whipTimer > 2500 && !this.isWhipping) {
+            const dx = player.x - this.x;
+            const dy = player.y - this.y;
+            this.whipAngle = Math.atan2(dy, dx);
+            this.isWhipping = true;
+            this.whipProgress = 0;
+            this.whipTimer = 0;
+        }
+
+        if (this.isWhipping) {
+            this.whipProgress += deltaTime / 500;
+            if (this.whipProgress >= 1) {
+                this.isWhipping = false;
+            } else if (this.whipProgress > 0.2 && this.whipProgress < 0.8) {
+                // Whip extends 130px - check hit
+                const whipX = this.x + Math.cos(this.whipAngle) * 130;
+                const whipY = this.y + Math.sin(this.whipAngle) * 130;
+                const dist = Math.sqrt((whipX - player.x) ** 2 + (whipY - player.y) ** 2);
+                if (dist < 55) {
+                    player.takeDamage(1);
+                }
+            }
+        }
+
+        this.checkPlayerCollision();
+    }
+
+    draw() {
+        super.draw();
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        // Animated hair tentacles (8 thick ones, very long)
+        const hairColors = ['#8B0000', '#c0392b', '#922b21', '#e74c3c', '#7b241c', '#cb4335', '#a93226', '#e55039'];
+        for (let i = 0; i < 8; i++) {
+            const angle = this.hairAngle + (i * Math.PI / 4);
+            const len = 75 + Math.sin(this.hairAngle * 2 + i) * 20;
+            const midX = Math.cos(angle + 0.5) * len * 0.5;
+            const midY = Math.sin(angle + 0.5) * len * 0.5;
+            const endX = Math.cos(angle) * len;
+            const endY = Math.sin(angle) * len;
+            ctx.strokeStyle = hairColors[i % hairColors.length];
+            ctx.lineWidth = 9;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(midX, midY, endX, endY);
+            ctx.stroke();
+            // Hair tip bulb
+            ctx.fillStyle = hairColors[i % hairColors.length];
+            ctx.beginPath();
+            ctx.arc(endX, endY, 10, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Body
+        const bodyGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, 60);
+        bodyGrad.addColorStop(0, '#7d3c98');
+        bodyGrad.addColorStop(1, '#4a235a');
+        ctx.fillStyle = bodyGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, 60, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        // Glowing red eyes
+        ctx.fillStyle = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(-20, -14, 16, 0, Math.PI * 2);
+        ctx.arc(20, -14, 16, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(-20, -14, 7, 0, Math.PI * 2);
+        ctx.arc(20, -14, 7, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Angry mouth
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(0, 18, 26, 0.2, Math.PI - 0.2, true);
+        ctx.stroke();
+
+        // Hair whip attack visual
+        if (this.isWhipping && this.whipProgress > 0.2 && this.whipProgress < 0.8) {
+            ctx.globalAlpha = 1 - Math.abs(this.whipProgress - 0.5) * 2;
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineWidth = 12;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(this.whipAngle) * 130, Math.sin(this.whipAngle) * 130);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
+
+        ctx.restore();
+
+        // Name and HP bar
+        const barWidth = 140;
+        const barHeight = 12;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x - barWidth/2, this.y - 85, barWidth, barHeight);
+        ctx.fillStyle = '#e74c3c';
+        ctx.fillRect(this.x - barWidth/2, this.y - 85, barWidth * (this.hp / this.maxHP), barHeight);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(this.name, this.x, this.y - 92);
+    }
+}
+
 // ==================== COLLISION DETECTION ====================
 function checkCollision(obj1, obj2) {
     return obj1.x - obj1.width/2 < obj2.x + obj2.width/2 &&
@@ -1566,7 +1818,8 @@ function updateShopButton() {
     if (gameState === GAME_STATES.MAP ||
         gameState === GAME_STATES.SHIP_AREA ||
         gameState === GAME_STATES.STREAM_AREA ||
-        gameState === GAME_STATES.GUARD_AREA) {
+        gameState === GAME_STATES.GUARD_AREA ||
+        gameState === GAME_STATES.BIG_TIME_WORLD) {
         shopButton.style.display = 'block';
     } else {
         shopButton.style.display = 'none';
@@ -1591,7 +1844,7 @@ function updateLoseScreen() {
     const loseScreen = document.getElementById('lose-screen');
 
     if (previousGameState === GAME_STATES.FIGHT) {
-        const bossNames = ['Ninja Street', 'Shaded Hair', 'Swords'];
+        const bossNames = ['Ninja Street', 'Shaded Hair', 'Swords', 'Mutant Hair'];
         loseScreen.querySelector('p').textContent =
             `Defeated by ${bossNames[currentBoss]}! Try again?`;
     } else if (previousGameState === GAME_STATES.STREAM_AREA) {
@@ -1749,6 +2002,208 @@ function enterLocation(locationKey) {
         if (!questState.guardDefeated) {
             spawnGuard();
         }
+    }
+}
+
+// ==================== BIG TIME WORLD ====================
+function drawBigTimeWorldArea() {
+    // Dark icy background
+    ctx.fillStyle = '#0d1b2a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Floor
+    ctx.fillStyle = '#1a2a3a';
+    ctx.fillRect(0, 480, canvas.width, canvas.height - 480);
+
+    // Wall panel lines
+    ctx.strokeStyle = '#1e3a5f';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < canvas.width; i += 80) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, 480);
+        ctx.stroke();
+    }
+
+    // Title
+    ctx.fillStyle = '#aed6f1';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('The Big Time World', canvas.width / 2, 32);
+
+    const iceX = 325, iceY = 180, iceW = 150, iceH = 130;
+
+    if (!questState.iceBlockBroken) {
+        // Draw computer silhouette visible inside ice
+        ctx.fillStyle = 'rgba(40, 40, 60, 0.6)';
+        ctx.fillRect(iceX + 30, iceY + 15, 90, 65);
+        ctx.fillRect(iceX + 60, iceY + 80, 30, 15);
+        ctx.fillRect(iceX + 45, iceY + 95, 60, 10);
+
+        // Ice block body
+        ctx.fillStyle = 'rgba(130, 220, 255, 0.78)';
+        ctx.fillRect(iceX, iceY, iceW, iceH);
+        ctx.strokeStyle = 'rgba(200, 240, 255, 0.95)';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(iceX, iceY, iceW, iceH);
+
+        // Ice shine
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(iceX + 18, iceY + 6);
+        ctx.lineTo(iceX + 6, iceY + 38);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(iceX + 48, iceY + 6);
+        ctx.lineTo(iceX + 30, iceY + 58);
+        ctx.stroke();
+
+        // Cracks based on damage taken
+        const hpFraction = questState.iceBlockHP / 5;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.5;
+        if (hpFraction < 0.8) {
+            ctx.beginPath();
+            ctx.moveTo(iceX + 70, iceY + 10);
+            ctx.lineTo(iceX + 85, iceY + 35);
+            ctx.lineTo(iceX + 75, iceY + 50);
+            ctx.stroke();
+        }
+        if (hpFraction < 0.6) {
+            ctx.beginPath();
+            ctx.moveTo(iceX + 40, iceY + 60);
+            ctx.lineTo(iceX + 60, iceY + 82);
+            ctx.lineTo(iceX + 50, iceY + 110);
+            ctx.stroke();
+        }
+        if (hpFraction < 0.4) {
+            ctx.beginPath();
+            ctx.moveTo(iceX + 110, iceY + 28);
+            ctx.lineTo(iceX + 92, iceY + 58);
+            ctx.lineTo(iceX + 122, iceY + 70);
+            ctx.stroke();
+        }
+        if (hpFraction < 0.2) {
+            ctx.beginPath();
+            ctx.moveTo(iceX + 22, iceY + 80);
+            ctx.lineTo(iceX + 42, iceY + 100);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(iceX + 95, iceY + 88);
+            ctx.lineTo(iceX + 115, iceY + 118);
+            ctx.stroke();
+        }
+
+        // HP label
+        ctx.fillStyle = '#7ec8e3';
+        ctx.font = 'bold 13px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`Ice HP: ${questState.iceBlockHP} / 5`, iceX + iceW / 2, iceY - 12);
+
+        // Instruction
+        ctx.fillStyle = '#ffd93d';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText('Hit the ice block to break it! (SPACE to attack)', canvas.width / 2, canvas.height - 18);
+
+    } else if (!questState.computerAnswered) {
+        // Ice broken — draw computer
+        const compX = iceX + 20;
+        const compY = iceY + 8;
+
+        // Monitor
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(compX + 10, compY, 100, 75);
+        ctx.fillStyle = '#0a0a2a';
+        ctx.fillRect(compX + 15, compY + 5, 90, 65);
+
+        // Screen text
+        ctx.fillStyle = '#00ff88';
+        ctx.font = 'bold 12px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText('>> QUESTION <<', compX + 60, compY + 22);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px monospace';
+        ctx.fillText('Which number', compX + 60, compY + 38);
+        ctx.fillText('is even?', compX + 60, compY + 52);
+
+        // Stand + base
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(compX + 50, compY + 75, 20, 14);
+        ctx.fillRect(compX + 35, compY + 89, 50, 8);
+
+        // Keyboard
+        ctx.fillStyle = '#34495e';
+        ctx.fillRect(compX + 25, compY + 99, 70, 18);
+
+        // Check proximity
+        const nearComputer = Math.abs(player.x - (compX + 60)) < 90 && Math.abs(player.y - (compY + 60)) < 90;
+
+        if (nearComputer) {
+            // Question overlay
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.88)';
+            ctx.fillRect(145, 345, 510, 118);
+            ctx.strokeStyle = '#00ff88';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(145, 345, 510, 118);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 19px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Which number is even?', canvas.width / 2, 372);
+
+            // Option 4 (correct)
+            ctx.fillStyle = '#27ae60';
+            ctx.fillRect(180, 388, 185, 55);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 28px Arial';
+            ctx.fillText('4', 272, 422);
+            ctx.fillStyle = '#ccc';
+            ctx.font = '13px Arial';
+            ctx.fillText('Press [4]', 272, 438);
+
+            // Option 5 (wrong)
+            ctx.fillStyle = '#922b21';
+            ctx.fillRect(435, 388, 185, 55);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 28px Arial';
+            ctx.fillText('5', 527, 422);
+            ctx.fillStyle = '#ccc';
+            ctx.font = '13px Arial';
+            ctx.fillText('Press [5]', 527, 438);
+
+            // Handle input
+            if (keys['4'] && !questState.computerAnswered) {
+                questState.computerAnswered = true;
+                hairPoints += 10;
+                updateUI();
+                saveGame();
+                showFloatingText('+10 Hair! Correct!', canvas.width / 2, 310);
+                setTimeout(() => { startBossFight(); }, 2200);
+            } else if (keys['5'] && !questState.computerAnswered) {
+                questState.computerAnswered = true;
+                hairPoints -= 10;
+                updateUI();
+                saveGame();
+                showFloatingText('-10 Hair! Wrong!', canvas.width / 2, 310);
+                setTimeout(() => { startBossFight(); }, 2200);
+            }
+        } else {
+            ctx.fillStyle = '#ffd93d';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Walk to the computer to use it!', canvas.width / 2, canvas.height - 18);
+        }
+
+    } else {
+        // Answered — boss incoming
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = 'bold 26px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('THE GROUND IS SHAKING...', canvas.width / 2, canvas.height / 2 - 20);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 20px Arial';
+        ctx.fillText('MUTANT HAIR IS COMING!', canvas.width / 2, canvas.height / 2 + 20);
     }
 }
 
@@ -2124,6 +2579,7 @@ function createBoss(index) {
         case 0: return new NinjaStreet();
         case 1: return new ShadedHair();
         case 2: return new Swords();
+        case 3: return new MutantHair();
         default: return null;
     }
 }
@@ -2163,6 +2619,10 @@ function gameLoop() {
         player.draw();
     } else if (gameState === GAME_STATES.GUARD_AREA) {
         drawGuardArea();
+        player.draw();
+    } else if (gameState === GAME_STATES.BIG_TIME_WORLD) {
+        drawBigTimeWorldArea();
+        player.update(deltaTime);
         player.draw();
     } else if (gameState === GAME_STATES.FIGHT) {
         // Draw arena
@@ -2338,7 +2798,10 @@ function resetGame(keepUpgrades = false) {
         hasShipComponent: false,
         shipRepaired: false,
         guardDefeated: false,
-        porcupinesDefeated: false
+        porcupinesDefeated: false,
+        iceBlockHP: 5,
+        iceBlockBroken: false,
+        computerAnswered: false
     };
 
     if (!keepUpgrades) {
