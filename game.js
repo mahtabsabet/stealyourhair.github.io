@@ -1471,7 +1471,7 @@ class Swords extends Boss {
 // ==================== BOSS 4: MUTANT HAIR ====================
 class MutantHair extends Boss {
     constructor() {
-        super('Mutant Hair', 12, 15);
+        super('Mutant Hair', 12, 16);
         this.width = 120;
         this.height = 120;
         this.chargeTimer = 0;
@@ -1486,6 +1486,14 @@ class MutantHair extends Boss {
     }
 
     update(deltaTime) {
+        // NaN recovery: if position got corrupted, reset to arena center
+        if (!isFinite(this.x) || !isFinite(this.y)) {
+            this.x = ARENA.x + ARENA.width / 2;
+            this.y = ARENA.y + ARENA.height / 2;
+            this.isCharging = false;
+            this.chargeSpeed = 0;
+        }
+
         this.hairAngle += 0.05;
         this.chargeTimer += deltaTime;
         this.whipTimer += deltaTime;
@@ -1512,7 +1520,13 @@ class MutantHair extends Boss {
             const dx = player.x - this.x;
             const dy = player.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
-            this.chargeDir = { x: dx / dist, y: dy / dist };
+            if (dist > 1) {
+                this.chargeDir = { x: dx / dist, y: dy / dist };
+            } else {
+                // Player is on top of boss — charge in a random direction
+                const angle = Math.random() * Math.PI * 2;
+                this.chargeDir = { x: Math.cos(angle), y: Math.sin(angle) };
+            }
             this.isCharging = true;
             this.chargeSpeed = 8;
             this.chargeTimer = 0;
