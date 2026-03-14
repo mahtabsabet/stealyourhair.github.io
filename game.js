@@ -1219,23 +1219,24 @@ class Swords extends Boss {
 
     checkSlashHit() {
         // Check if any sword is near player during slash
-        for (let i = 0; i < 2; i++) {
-            const swordAngle = this.slashAngle + this.swordRotation + (i * Math.PI);
+        // Use slashAngle directly (matching the visual orientation during slash)
+        for (let i = 0; i < 4; i++) {
+            const swordAngle = this.slashAngle + (i * Math.PI / 2);
             const swordX = this.x + Math.cos(swordAngle) * 45;
             const swordY = this.y + Math.sin(swordAngle) * 45;
 
             const dist = Math.sqrt((swordX - player.x) ** 2 + (swordY - player.y) ** 2);
-            if (dist < 30) {
+            if (dist < 35) {
                 player.takeDamage(2);
-                break;
+                return;
             }
         }
     }
 
     checkSpinHit() {
-        // Check if player is within spin range
+        // Check if player is within spin range (swords extend ~62px from center)
         const dist = Math.sqrt((this.x - player.x) ** 2 + (this.y - player.y) ** 2);
-        if (dist < 60) {
+        if (dist < 80) {
             player.takeDamage(1);
         }
     }
@@ -1641,14 +1642,36 @@ function drawMap() {
         }
     }
 
-    // Draw player on map
-    ctx.fillStyle = '#4ecdc4';
+    // Draw player on map as actual character (scaled down)
+    ctx.save();
+    const mw = 20, mh = 20; // map character size
+    // Body
+    const mapBodyGrad = ctx.createLinearGradient(
+        player.x - mw/2, player.y - mh/2,
+        player.x + mw/2, player.y + mh/2
+    );
+    mapBodyGrad.addColorStop(0, '#6ee7d7');
+    mapBodyGrad.addColorStop(1, '#3ab5a8');
+    ctx.fillStyle = mapBodyGrad;
+    ctx.fillRect(player.x - mw/2, player.y - mh/2, mw, mh);
+    ctx.strokeStyle = '#2a9d8f';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(player.x - mw/2, player.y - mh/2, mw, mh);
+    // Hair (simplified version matching current cosmetic)
+    drawPlayerHair(player.x, player.y, mw, mh);
+    // Eyes
+    ctx.fillStyle = '#000';
     ctx.beginPath();
-    ctx.arc(player.x, player.y, 15, 0, Math.PI * 2);
+    ctx.arc(player.x - 4, player.y - 2, 1.5, 0, Math.PI * 2);
+    ctx.arc(player.x + 4, player.y - 2, 1.5, 0, Math.PI * 2);
     ctx.fill();
+    // Smile
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y + 3, 4, 0.2, Math.PI - 0.2);
     ctx.stroke();
+    ctx.restore();
 
     // Instructions
     ctx.fillStyle = '#000';
@@ -1749,6 +1772,9 @@ class Porcupine {
 
         if (this.hp <= 0) {
             this.defeated = true;
+            hairPoints += 2;
+            showFloatingText('+2 Hair!', this.x, this.y);
+            updateUI();
         }
     }
 
