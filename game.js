@@ -4139,6 +4139,24 @@ function clearSave() {
         shootBtn.addEventListener('touchend',    (e) => { e.preventDefault(); keys.shift = false; }, { passive: false });
         shootBtn.addEventListener('touchcancel', ()  => { keys.shift = false; });
     }
+
+    const escBtn = document.getElementById('btn-esc');
+    if (escBtn) {
+        escBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            keys.escape = true;
+            if (gameState === GAME_STATES.SHIP_AREA ||
+                gameState === GAME_STATES.STREAM_AREA ||
+                gameState === GAME_STATES.GUARD_AREA ||
+                gameState === GAME_STATES.SCHOOL_AREA) {
+                gameState = GAME_STATES.MAP;
+                player.x = 400;
+                player.y = 300;
+            }
+        }, { passive: false });
+        escBtn.addEventListener('touchend',    (e) => { e.preventDefault(); keys.escape = false; }, { passive: false });
+        escBtn.addEventListener('touchcancel', ()  => { keys.escape = false; });
+    }
 })();
 
 // ==================== INIT ====================
