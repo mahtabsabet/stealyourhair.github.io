@@ -497,6 +497,8 @@ function drawPlayerVehicle(x, y) {
 // ==================== SPRITES ====================
 const flamethrowerSprite = new Image();
 flamethrowerSprite.src = 'sprites/flamethrower.png';
+const volcanoMonsterSprite = new Image();
+volcanoMonsterSprite.src = 'sprites/volcanomonster.png';
 
 // ==================== PLAYER ====================
 const player = {
@@ -2063,75 +2065,17 @@ class MarsVolcanoBoss extends Boss {
     draw() {
         super.draw();
         const isHit = Date.now() < this.hitFlashUntil;
+        const w = 120, h = 160;
 
         ctx.save();
         ctx.translate(this.x, this.y);
 
-        // Outer lava glow
-        ctx.shadowColor = isHit ? '#fff' : '#ff5500';
-        ctx.shadowBlur = 22;
-
-        // Rocky body gradient
-        const bodyGrad = ctx.createRadialGradient(-8, -8, 5, 0, 0, this.width / 2);
-        bodyGrad.addColorStop(0, isHit ? '#fff' : '#ff7700');
-        bodyGrad.addColorStop(0.45, isHit ? '#ffcccc' : '#cc2200');
-        bodyGrad.addColorStop(1, isHit ? '#ffbbbb' : '#441100');
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Lava crack lines
-        ctx.strokeStyle = isHit ? '#fff' : '#ffaa00';
-        ctx.lineWidth = 2.5;
-        for (let i = 0; i < 4; i++) {
-            const a = (i * Math.PI / 2) + this.rockAngle;
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(Math.cos(a) * this.width / 2 * 0.75, Math.sin(a) * this.height / 2 * 0.75);
-            ctx.stroke();
-        }
-
-        // Rocky outer edge bumps
-        ctx.fillStyle = isHit ? '#ffaaaa' : '#331100';
-        for (let i = 0; i < 6; i++) {
-            const a = (i * Math.PI / 3) + this.rockAngle * 0.5;
-            const bx = Math.cos(a) * this.width / 2;
-            const by = Math.sin(a) * this.height / 2;
-            ctx.beginPath();
-            ctx.arc(bx, by, 8, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        ctx.shadowBlur = 0;
-
-        // Eyes - glowing red
-        ctx.fillStyle = isHit ? '#fff' : '#ff2200';
-        ctx.shadowColor = isHit ? '#fff' : '#ff6600';
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.ellipse(-13, -10, 9, 7, 0, 0, Math.PI * 2);
-        ctx.ellipse(13, -10, 9, 7, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Pupils
-        ctx.fillStyle = '#000';
-        ctx.shadowBlur = 0;
-        ctx.beginPath();
-        ctx.arc(-13, -10, 4, 0, Math.PI * 2);
-        ctx.arc(13, -10, 4, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Angry mouth (snarl)
-        ctx.strokeStyle = isHit ? '#fff' : '#220000';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(0, 12, 16, 0.3, Math.PI - 0.3, true);
-        ctx.stroke();
-        // Teeth
-        ctx.fillStyle = isHit ? '#fff' : '#ddd';
-        for (let t = -1; t <= 1; t++) {
-            ctx.fillRect(t * 9 - 4, 10, 8, 7);
+        if (volcanoMonsterSprite.complete && volcanoMonsterSprite.naturalWidth > 0) {
+            if (isHit) {
+                ctx.filter = 'brightness(10)';
+            }
+            ctx.drawImage(volcanoMonsterSprite, -w / 2, -h * 0.65, w, h);
+            ctx.filter = 'none';
         }
 
         ctx.restore();
