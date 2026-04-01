@@ -4159,6 +4159,20 @@ function clearSave() {
     }
 })();
 
+// ==================== RESET PROGRESS ====================
+document.getElementById('reset-button').addEventListener('click', () => {
+    document.getElementById('reset-confirm').style.display = 'block';
+});
+
+document.getElementById('reset-confirm-no').addEventListener('click', () => {
+    document.getElementById('reset-confirm').style.display = 'none';
+});
+
+document.getElementById('reset-confirm-yes').addEventListener('click', () => {
+    clearSave();
+    location.reload();
+});
+
 // ==================== INIT ====================
 loadGame();
 updateUI();

@@ -166,6 +166,17 @@ body {
     transform: scale(0.98);
 }
 
+.reset-button {
+    background: linear-gradient(135deg, #e53935 0%, #b71c1c 100%);
+    font-size: 0.85em;
+    padding: 8px 18px;
+    margin-top: 6px;
+}
+
+.reset-button:hover {
+    box-shadow: 0 5px 15px rgba(229, 57, 53, 0.4);
+}
+
 .shop-tabs {
     display: flex;
     gap: 10px;
