@@ -100,12 +100,24 @@ body {
     transition: width 0.3s ease;
 }
 
+#canvas-wrapper {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+    max-width: 100%;
+}
+
 #gameCanvas {
     border: 4px solid white;
     border-radius: 10px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     background: #2d3436;
     display: block;
+    /* Responsive scaling: shrinks on small screens, stays full size on desktop */
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 800 / 600;
+    touch-action: none;
 }
 
 .screen {
@@ -370,5 +382,247 @@ body {
     100% {
         opacity: 0;
         transform: translateY(-50px);
+    }
+}
+
+/* ==================== MOBILE CONTROLS ==================== */
+#mobile-controls {
+    display: none; /* hidden on desktop */
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    z-index: 5;
+}
+ 
+#dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 58px);
+    grid-template-rows: repeat(3, 58px);
+    gap: 4px;
+    pointer-events: all;
+}
+ 
+#dpad-up    { grid-area: 1 / 2; }
+#dpad-left  { grid-area: 2 / 1; }
+#dpad-right { grid-area: 2 / 3; }
+#dpad-down  { grid-area: 3 / 2; }
+ 
+.dpad-btn {
+    width: 58px;
+    height: 58px;
+    font-size: 1.4em;
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    border-radius: 10px;
+    color: white;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s;
+}
+ 
+.dpad-btn:active {
+    background: rgba(255, 255, 255, 0.4);
+}
+ 
+#action-buttons {
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+    pointer-events: all;
+}
+ 
+.action-btn {
+    width: 72px;
+    height: 72px;
+    font-size: 1.3em;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    color: white;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+    line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.1s;
+}
+ 
+.action-btn span {
+    font-size: 0.45em;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+ 
+#btn-shoot {
+    background: rgba(78, 205, 196, 0.65);
+}
+ 
+#btn-melee {
+    background: rgba(102, 126, 234, 0.65);
+}
+ 
+.action-btn:active {
+    opacity: 0.6;
+}
+ 
+/* ==================== RESPONSIVE STYLES ==================== */
+@media (max-width: 840px) {
+    body {
+        align-items: flex-start;
+        padding: 10px 0;
+        overflow-x: hidden;
+    }
+ 
+    #game-container {
+        width: 100%;
+        padding: 0 8px;
+    }
+ 
+    #game-title {
+        font-size: 1.6em;
+        margin-bottom: 10px;
+        letter-spacing: 2px;
+    }
+ 
+    #ui-container {
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        min-height: 48px;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+ 
+    #hp-display {
+        font-size: 1.2em;
+    }
+ 
+    #hair-points-display {
+        font-size: 1em;
+    }
+ 
+    .shop-access-button {
+        padding: 7px 14px;
+        font-size: 0.9em;
+    }
+ 
+    #boss-name {
+        font-size: 0.95em;
+    }
+ 
+    #boss-health-bar {
+        height: 14px;
+    }
+ 
+    /* Show mobile controls */
+    #mobile-controls {
+        display: flex;
+    }
+ 
+    /* Screens need to fit smaller viewports */
+    .screen {
+        min-width: 0;
+        width: 92%;
+        padding: 20px 16px;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+ 
+    .screen h2 {
+        font-size: 1.5em;
+        margin-bottom: 12px;
+    }
+ 
+    .screen p {
+        font-size: 1em;
+        margin-bottom: 12px;
+    }
+ 
+    .game-button {
+        padding: 12px 22px;
+        font-size: 1em;
+    }
+ 
+    /* Shop responsive */
+    .shop-tabs {
+        gap: 6px;
+        margin: 12px 0;
+    }
+ 
+    .shop-tab {
+        padding: 8px 14px;
+        font-size: 0.9em;
+    }
+ 
+    .shop-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 12px;
+        margin: 12px 0;
+    }
+ 
+    .upgrade-item {
+        padding: 14px;
+        min-width: 0;
+    }
+ 
+    .upgrade-item h3 {
+        font-size: 0.95em;
+    }
+ 
+    .upgrade-item p {
+        font-size: 0.8em;
+        margin-bottom: 10px;
+    }
+ 
+    .upgrade-button,
+    .weapon-button,
+    .cosmetic-button {
+        padding: 8px 12px;
+        font-size: 0.85em;
+    }
+ 
+    #shop-hair-points {
+        font-size: 1.2em;
+    }
+ 
+    .shop-tab-content {
+        min-height: 0;
+    }
+}
+ 
+/* Extra small screens (phones in portrait) */
+@media (max-width: 480px) {
+    #game-title {
+        font-size: 1.3em;
+        letter-spacing: 1px;
+    }
+ 
+    .dpad-btn {
+        width: 52px;
+        height: 52px;
+        font-size: 1.2em;
+    }
+ 
+    #dpad {
+        grid-template-columns: repeat(3, 52px);
+        grid-template-rows: repeat(3, 52px);
+    }
+ 
+    .action-btn {
+        width: 64px;
+        height: 64px;
+        font-size: 1.1em;
     }
 }

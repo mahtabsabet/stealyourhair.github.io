@@ -24,7 +24,23 @@
         </div>
 
         <!-- Canvas -->
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="canvas-wrapper">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+ 
+            <!-- Mobile Controls (touch devices / small screens) -->
+            <div id="mobile-controls">
+                <div id="dpad">
+                    <button class="dpad-btn" id="dpad-up">▲</button>
+                    <button class="dpad-btn" id="dpad-left">◄</button>
+                    <button class="dpad-btn" id="dpad-right">►</button>
+                    <button class="dpad-btn" id="dpad-down">▼</button>
+                </div>
+                <div id="action-buttons">
+                    <button class="action-btn" id="btn-shoot">🏹<br><span>Shoot</span></button>
+                    <button class="action-btn" id="btn-melee">⚔️<br><span>Melee</span></button>
+                </div>
+            </div>
+        </div>
 
         <!-- Game Screens -->
         <div id="title-screen" class="screen">
@@ -32,9 +48,9 @@
             <p>Defeat bosses and steal their hair!</p>
             <div style="margin: 20px 0; font-size: 0.9em; text-align: left;">
                 <p><strong>Controls:</strong></p>
-                <p>🎮 Move: WASD</p>
-                <p>⚔️ Melee Attack: SPACE</p>
-                <p>🏹 Shoot Arrow: SHIFT or E</p>
+                <p>🎮 Move: WASD (or D-pad on mobile)</p>
+                <p>⚔️ Melee Attack: SPACE (or Melee button)</p>
+                <p>🏹 Shoot Arrow: SHIFT or E (or Shoot button)</p>
             </div>
             <button id="start-button" class="game-button">START GAME</button>
         </div>

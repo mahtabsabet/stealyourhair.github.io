@@ -2315,8 +2315,14 @@ function showFloatingText(text, x, y) {
     const textEl = document.createElement('div');
     textEl.className = 'floating-text';
     textEl.textContent = text;
-    textEl.style.left = x + 'px';
-    textEl.style.top = y + 'px';
+
+    // Convert canvas-space coordinates to screen coordinates (handles CSS scaling)
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = rect.width / canvas.width;
+    const scaleY = rect.height / canvas.height;
+    textEl.style.left = (rect.left + window.scrollX + x * scaleX) + 'px';
+    textEl.style.top = (rect.top + window.scrollY + y * scaleY) + 'px';
+
     container.appendChild(textEl);
 
     setTimeout(() => {
@@ -4101,6 +4107,39 @@ function loadGame() {
 function clearSave() {
     localStorage.removeItem(SAVE_KEY);
 }
+
+// ==================== MOBILE CONTROLS ====================
+(function setupMobileControls() {
+    // Map D-pad button IDs to the keys object entries they should set
+    const dpadBindings = {
+        'dpad-up':    'w',
+        'dpad-down':  's',
+        'dpad-left':  'a',
+        'dpad-right': 'd'
+    };
+ 
+    Object.entries(dpadBindings).forEach(([id, key]) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener('touchstart',  (e) => { e.preventDefault(); keys[key] = true;  }, { passive: false });
+        btn.addEventListener('touchend',    (e) => { e.preventDefault(); keys[key] = false; }, { passive: false });
+        btn.addEventListener('touchcancel', ()  => { keys[key] = false; });
+    });
+ 
+    const meleeBtn = document.getElementById('btn-melee');
+    if (meleeBtn) {
+        meleeBtn.addEventListener('touchstart',  (e) => { e.preventDefault(); keys.space = true;  }, { passive: false });
+        meleeBtn.addEventListener('touchend',    (e) => { e.preventDefault(); keys.space = false; }, { passive: false });
+        meleeBtn.addEventListener('touchcancel', ()  => { keys.space = false; });
+    }
+ 
+    const shootBtn = document.getElementById('btn-shoot');
+    if (shootBtn) {
+        shootBtn.addEventListener('touchstart',  (e) => { e.preventDefault(); keys.shift = true;  }, { passive: false });
+        shootBtn.addEventListener('touchend',    (e) => { e.preventDefault(); keys.shift = false; }, { passive: false });
+        shootBtn.addEventListener('touchcancel', ()  => { keys.shift = false; });
+    }
+})();
 
 // ==================== INIT ====================
 loadGame();
