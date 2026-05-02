@@ -11,7 +11,8 @@ const GAME_STATES = {
     SCHOOL_AREA: 'SCHOOL_AREA',
     WIN: 'WIN',
     LOSE: 'LOSE',
-    MARS_WORLD: 'MARS_WORLD'
+    MARS_WORLD: 'MARS_WORLD',
+    OCEAN_WORLD: 'OCEAN_WORLD'
 };
 
 const ARENA = {
@@ -60,6 +61,10 @@ let questState = {
 let marsPhase = 'explore'; // 'explore' | 'button_pressed'
 let marsButtonPressed = false;
 let showingMarsTransition = false;
+
+// ==================== OCEAN WORLD STATE ====================
+let hasScubaGear = false;
+let showingOceanTransition = false;
 
 // ==================== SCHOOL LEVEL STATE ====================
 let schoolPhase = 'inside'; // 'inside' | 'outside'
@@ -566,7 +571,7 @@ const player = {
         }
 
         // Shoot Arrow (Shift or E)
-        const canShoot = boss || porcupines.some(p => !p.defeated);
+        const canShoot = boss || porcupines.some(p => !p.defeated) || oceanPiranhas.some(p => !p.defeated);
         if ((keys.shift || keys.e) && Date.now() - this.lastArrowTime > this.arrowCooldown && canShoot) {
             this.shootArrow();
             this.lastArrowTime = Date.now();
@@ -594,6 +599,11 @@ const player = {
                 boss.takeDamage(2); // Sword does more damage
             }
             porcupines.forEach(p => {
+                if (!p.defeated && checkCollision(attackBox, p)) {
+                    p.takeDamage(2);
+                }
+            });
+            oceanPiranhas.forEach(p => {
                 if (!p.defeated && checkCollision(attackBox, p)) {
                     p.takeDamage(2);
                 }
@@ -637,6 +647,11 @@ const player = {
                     p.takeDamage(1);
                 }
             });
+            oceanPiranhas.forEach(p => {
+                if (!p.defeated && checkCollision(attackBox, p)) {
+                    p.takeDamage(1);
+                }
+            });
             // Check ice block
             if (gameState === GAME_STATES.BIG_TIME_WORLD && !questState.iceBlockBroken) {
                 const iceBlockObj = { x: 325, y: 200, width: 150, height: 130 };
@@ -667,6 +682,10 @@ const player = {
         if (boss) {
             targetX = boss.x;
             targetY = boss.y;
+        } else if (oceanPiranhas.some(p => !p.defeated)) {
+            const alive = oceanPiranhas.filter(p => !p.defeated);
+            targetX = alive[0].x;
+            targetY = alive[0].y;
         } else if (porcupines.length > 0) {
             // Target nearest porcupine
             const alivePorcupines = porcupines.filter(p => !p.defeated);
@@ -812,6 +831,10 @@ const player = {
             if (boss) {
                 targetX = boss.x;
                 targetY = boss.y;
+            } else if (oceanPiranhas.some(p => !p.defeated)) {
+                const alive = oceanPiranhas.filter(p => !p.defeated);
+                targetX = alive[0].x;
+                targetY = alive[0].y;
             } else if (porcupines.length > 0) {
                 const alivePorcupines = porcupines.filter(p => !p.defeated);
                 if (alivePorcupines.length > 0) {
@@ -878,13 +901,27 @@ class Boss {
 
         setTimeout(() => {
             currentBoss++;
-            if (currentBoss >= 6) {
+            if (currentBoss >= 8) {
                 hasBeatenGame = true; // Unlock cosmetics!
                 saveGame();
                 gameState = GAME_STATES.WIN;
                 showScreen('win-screen');
                 document.getElementById('final-hair-points').textContent =
                     `Total Hair Points: ${hairPoints}`;
+            } else if (currentBoss === 7) {
+                // Abyss Kraken defeated — Newbie Bighead appears in the depths!
+                bossProjectiles = [];
+                startBossFight();
+            } else if (currentBoss === 6) {
+                // After Volcano Beast defeated, crash-land next to the Martian Ocean!
+                hasScubaGear = false;
+                showingOceanTransition = false;
+                player.x = 400;
+                player.y = 380;
+                gameState = GAME_STATES.OCEAN_WORLD;
+                spawnOceanPiranhas();
+                hideAllScreens();
+                document.getElementById('boss-health-bar-container').style.display = 'none';
             } else if (currentBoss === 5) {
                 // After Boss 4 (Spider Spit Bus) defeated, head to Mars!
                 marsPhase = 'explore';
@@ -2082,6 +2119,333 @@ class MarsVolcanoBoss extends Boss {
     }
 }
 
+// ==================== INK BLOB PROJECTILE ====================
+class InkBlob {
+    constructor(x, y, vx, vy) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.width = 14;
+        this.height = 14;
+        this.active = true;
+        this.spawnTime = Date.now();
+        this.lifespan = 3500;
+    }
+
+    update() {
+        if (Date.now() - this.spawnTime > this.lifespan) { this.active = false; return; }
+        if (this.x < ARENA.x - 20 || this.x > ARENA.x + ARENA.width + 20 ||
+            this.y < ARENA.y - 20 || this.y > ARENA.y + ARENA.height + 20) {
+            this.active = false; return;
+        }
+        this.x += this.vx;
+        this.y += this.vy;
+        if (checkCollision(this, player)) {
+            player.takeDamage(1);
+            this.active = false;
+        }
+    }
+
+    draw() {
+        if (!this.active) return;
+        ctx.save();
+        ctx.shadowColor = '#6600cc';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#1a003a';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, 9, 9, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#7700cc';
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y, 6, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#cc88ff';
+        ctx.beginPath();
+        ctx.ellipse(this.x - 2, this.y - 2, 3, 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.restore();
+    }
+}
+
+// ==================== OCEAN ABYSS KRAKEN BOSS ====================
+class AbyssKraken extends Boss {
+    constructor() {
+        super('Abyss Kraken', 25, 30);
+        this.width = 80;
+        this.height = 80;
+        this.x = 500;
+        this.y = 280;
+        this.moveSpeed = 1.2;
+        this.direction = { x: -0.7, y: 0.4 };
+        this.shootTimer = 0;
+        this.shootCooldown = 2400;
+    }
+
+    update(deltaTime) {
+        if (this.defeated) return;
+
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+            this.direction.x += (dx / dist - this.direction.x) * 0.022;
+            this.direction.y += (dy / dist - this.direction.y) * 0.022;
+            const len = Math.sqrt(this.direction.x ** 2 + this.direction.y ** 2);
+            this.direction.x /= len;
+            this.direction.y /= len;
+        }
+
+        this.x += this.direction.x * this.moveSpeed;
+        this.y += this.direction.y * this.moveSpeed;
+
+        const hw = this.width / 2, hh = this.height / 2;
+        if (this.x - hw < ARENA.x) { this.direction.x = Math.abs(this.direction.x); this.x = ARENA.x + hw; }
+        if (this.x + hw > ARENA.x + ARENA.width) { this.direction.x = -Math.abs(this.direction.x); this.x = ARENA.x + ARENA.width - hw; }
+        if (this.y - hh < ARENA.y) { this.direction.y = Math.abs(this.direction.y); this.y = ARENA.y + hh; }
+        if (this.y + hh > ARENA.y + ARENA.height) { this.direction.y = -Math.abs(this.direction.y); this.y = ARENA.y + ARENA.height - hh; }
+
+        this.shootTimer += deltaTime;
+        if (this.shootTimer >= this.shootCooldown) {
+            this.shootTimer = 0;
+            // Shoot 5 ink blobs in a spread
+            for (let i = 0; i < 5; i++) {
+                const angle = (i / 5) * Math.PI * 2;
+                bossProjectiles.push(new InkBlob(this.x, this.y, Math.cos(angle) * 2.6, Math.sin(angle) * 2.6));
+            }
+        }
+
+        this.checkPlayerCollision();
+    }
+
+    draw() {
+        super.draw();
+        const isHit = Date.now() < this.hitFlashUntil;
+        const t = Date.now();
+        const bob = Math.sin(t * 0.003) * 5;
+
+        ctx.save();
+        ctx.translate(this.x, this.y + bob);
+
+        // Tentacles
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + t * 0.0008;
+            const wave = Math.sin(t * 0.004 + i * 0.9) * 14;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(
+                Math.cos(angle) * 38 + wave * 0.3,
+                Math.sin(angle) * 38 + wave * 0.3,
+                Math.cos(angle) * 65,
+                Math.sin(angle) * 65 + wave
+            );
+            ctx.strokeStyle = isHit ? '#ffffff' : '#1a003a';
+            ctx.lineWidth = 7;
+            ctx.stroke();
+            ctx.strokeStyle = isHit ? '#ffffff' : '#4400aa';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        // Main body
+        ctx.shadowColor = isHit ? '#ffffff' : '#5500bb';
+        ctx.shadowBlur = 22;
+        ctx.fillStyle = isHit ? '#ffffff' : '#12002e';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 38, 36, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = isHit ? '#ccaaff' : '#330066';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 28, 26, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Eyes
+        ctx.shadowColor = isHit ? '#ffffff' : '#ff00ff';
+        ctx.shadowBlur = 14;
+        ctx.fillStyle = isHit ? '#ffffff' : '#dd00ff';
+        ctx.beginPath(); ctx.ellipse(-13, -8, 9, 11, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(13, -8, 9, 11, 0, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = '#000';
+        ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.ellipse(-13, -8, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(13, -8, 4, 5, 0, 0, Math.PI * 2); ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+// ==================== NEWBIE BIGHEAD BOSS ====================
+class NewbieBighead extends Boss {
+    constructor() {
+        super('Newbie Bighead', 30, 35);
+        this.width = 90;
+        this.height = 90;
+        this.x = 500;
+        this.y = 200;
+        this.moveSpeed = 1.0;
+        this.direction = { x: -0.6, y: 0.3 };
+        this.shootTimer = 0;
+        this.shootCooldown = 2000;
+    }
+
+    update(deltaTime) {
+        if (this.defeated) return;
+
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0) {
+            this.direction.x += (dx / dist - this.direction.x) * 0.02;
+            this.direction.y += (dy / dist - this.direction.y) * 0.02;
+            const len = Math.sqrt(this.direction.x ** 2 + this.direction.y ** 2);
+            this.direction.x /= len;
+            this.direction.y /= len;
+        }
+
+        this.x += this.direction.x * this.moveSpeed;
+        this.y += this.direction.y * this.moveSpeed;
+
+        // Keep head + tentacles visible in arena
+        const hw = this.width / 2;
+        if (this.x - hw < ARENA.x) { this.direction.x = Math.abs(this.direction.x); this.x = ARENA.x + hw; }
+        if (this.x + hw > ARENA.x + ARENA.width) { this.direction.x = -Math.abs(this.direction.x); this.x = ARENA.x + ARENA.width - hw; }
+        if (this.y - hw < ARENA.y) { this.direction.y = Math.abs(this.direction.y); this.y = ARENA.y + hw; }
+        if (this.y > ARENA.y + 210) { this.direction.y = -Math.abs(this.direction.y); this.y = ARENA.y + 210; }
+
+        // Gun shoots toward player
+        this.shootTimer += deltaTime;
+        if (this.shootTimer >= this.shootCooldown) {
+            this.shootTimer = 0;
+            const angle = Math.atan2(player.y - this.y, player.x - this.x);
+            bossProjectiles.push(new InkBlob(
+                this.x + Math.cos(angle) * 55,
+                this.y + Math.sin(angle) * 20,
+                Math.cos(angle) * 3.5,
+                Math.sin(angle) * 3.5
+            ));
+        }
+
+        this.checkPlayerCollision();
+    }
+
+    draw() {
+        super.draw();
+        const isHit = Date.now() < this.hitFlashUntil;
+        const bob = Math.sin(Date.now() * 0.002) * 5;
+
+        ctx.save();
+        ctx.translate(this.x, this.y + bob);
+        if (player.x > this.x) ctx.scale(-1, 1);
+
+        const body    = isHit ? '#ffffff' : '#1a7a7a';
+        const dark    = isHit ? '#bbbbbb' : '#0d4f4f';
+        const light   = isHit ? '#eeeeee' : '#2aa8a8';
+        const spot    = isHit ? '#dddddd' : '#3acfcf';
+        const gun     = isHit ? '#cccccc' : '#7a8fa0';
+        const gunHi   = isHit ? '#eeeeee' : '#aabbc8';
+
+        // Helper: bezier tentacle with outline
+        const tentacle = (x0, y0, cx1, cy1, cx2, cy2, x1, y1, w) => {
+            ctx.strokeStyle = dark; ctx.lineWidth = w + 3;
+            ctx.beginPath(); ctx.moveTo(x0, y0);
+            ctx.bezierCurveTo(cx1, cy1, cx2, cy2, x1, y1); ctx.stroke();
+            ctx.strokeStyle = body; ctx.lineWidth = w; ctx.stroke();
+        };
+
+        // Tentacle 1: far left, shorter, curves left
+        tentacle(-32, 38,  -62, 90,  -78, 148,  -72, 198,  10);
+        // Tentacle 2: center-left, long, gentle curve
+        tentacle(-12, 43,  -22, 108, -28, 188,  -20, 255,  12);
+        // Tentacle 3: center, straight down
+        tentacle(  8, 44,    8, 120,   4, 198,    8, 262,  12);
+        // Tentacle 4: right, wide, curves right with bottom curl
+        tentacle( 30, 40,   68, 100, 104, 170,  112, 238,  14);
+        // Curl at end of tentacle 4
+        ctx.strokeStyle = dark;  ctx.lineWidth = 13;
+        ctx.beginPath(); ctx.arc(96, 248, 20, -0.4, Math.PI * 1.25); ctx.stroke();
+        ctx.strokeStyle = body;  ctx.lineWidth = 10; ctx.stroke();
+
+        // Oval spots on tentacles
+        ctx.fillStyle = spot; ctx.strokeStyle = dark; ctx.lineWidth = 1.5;
+        [
+            {x:-50, y:100, rx:6,  ry:4,  a:0.3},  // T1
+            {x:-60, y:148, rx:5,  ry:3.5,a:0.4},
+            {x:-66, y:182, rx:4.5,ry:3,  a:0.3},
+            {x:-18, y:115, rx:7,  ry:5,  a:0.1},  // T2
+            {x:-24, y:168, rx:6,  ry:4.5,a:0.2},
+            {x:-18, y:218, rx:5,  ry:3.5,a:0.1},
+            {x:  8, y:122, rx:7,  ry:5,  a:-0.1}, // T3
+            {x:  6, y:174, rx:6,  ry:4.5,a:-0.2},
+            {x:  8, y:222, rx:5,  ry:4,  a:-0.1},
+            {x: 54, y:118, rx:9,  ry:6,  a:0.5},  // T4
+            {x: 78, y:168, rx:8,  ry:6,  a:0.4},
+            {x:102, y:212, rx:7,  ry:5,  a:0.45},
+        ].forEach(s => {
+            ctx.beginPath();
+            ctx.ellipse(s.x, s.y, s.rx, s.ry, s.a, 0, Math.PI * 2);
+            ctx.fill(); ctx.stroke();
+        });
+
+        // BIG HEAD
+        ctx.shadowColor = isHit ? '#fff' : '#00cccc';
+        ctx.shadowBlur = 20;
+        ctx.fillStyle = dark;
+        ctx.beginPath(); ctx.arc(0, 0, 48, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.arc(0, 0, 45, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = light;
+        ctx.beginPath(); ctx.arc(-9, -11, 28, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Eyebrow lines
+        ctx.strokeStyle = dark; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-27, -27); ctx.lineTo(-13, -24); // left brow
+        ctx.moveTo(  6, -28); ctx.lineTo( 22, -24); // right brow
+        ctx.stroke();
+
+        // Left eye: angry X
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(-26, -22); ctx.lineTo(-14, -10);
+        ctx.moveTo(-14, -22); ctx.lineTo(-26, -10);
+        ctx.stroke();
+
+        // Right eye: teardrop with pupil
+        ctx.fillStyle = dark;
+        ctx.beginPath();
+        ctx.moveTo(6, -22);
+        ctx.bezierCurveTo(18, -30, 28, -14, 20, -7);
+        ctx.bezierCurveTo(14, -3,   4, -12,  6, -22);
+        ctx.fill();
+        ctx.fillStyle = spot;
+        ctx.beginPath(); ctx.arc(17, -17, 3.5, 0, Math.PI * 2); ctx.fill();
+
+        // GUN ARM (left side, points toward player since we flip by facing)
+        ctx.strokeStyle = dark; ctx.lineWidth = 2;
+        // Arm connector
+        ctx.fillStyle = gun;
+        ctx.fillRect(-68, -11, 22, 13); ctx.strokeRect(-68, -11, 22, 13);
+        // Barrel body
+        ctx.fillRect(-115, -11, 50, 14); ctx.strokeRect(-115, -11, 50, 14);
+        // Notches (comb on top)
+        ctx.fillStyle = gunHi;
+        for (let i = 0; i < 5; i++) {
+            ctx.fillRect(-112 + i * 9, -17, 6, 8);
+            ctx.strokeRect(-112 + i * 9, -17, 6, 8);
+        }
+        // Round tip
+        ctx.fillStyle = gun;
+        ctx.beginPath(); ctx.arc(-117, -4, 9, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        ctx.restore();
+    }
+}
+
 // ==================== COLLISION DETECTION ====================
 function checkCollision(obj1, obj2) {
     return obj1.x - obj1.width/2 < obj2.x + obj2.width/2 &&
@@ -3095,6 +3459,153 @@ class Porcupine {
 
 let porcupines = [];
 
+// ==================== PIRANHA ENEMY ====================
+class Piranha {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = 44;
+        this.height = 28;
+        this.hp = 2;
+        this.maxHP = 2;
+        this.speed = 1.8;
+        this.hitFlashUntil = 0;
+        this.defeated = false;
+        this.flipX = false;
+    }
+
+    update() {
+        if (this.defeated) return;
+
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist > 0 && dist > 45) {
+            this.x += (dx / dist) * this.speed;
+            this.y += (dy / dist) * this.speed;
+        }
+
+        // Keep piranhas inside the water zone (left side, below surface)
+        this.x = Math.max(12, Math.min(162, this.x));
+        this.y = Math.max(378, Math.min(590, this.y));
+
+        this.flipX = player.x < this.x;
+
+        if (checkCollision(this, player)) {
+            player.takeDamage(1);
+        }
+
+        playerArrows.forEach(arrow => {
+            if (arrow.active && checkCollision(arrow, this)) {
+                this.takeDamage(arrow.damage || 1);
+                arrow.active = false;
+            }
+        });
+    }
+
+    takeDamage(amount) {
+        if (this.defeated) return;
+        this.hp -= amount;
+        this.hitFlashUntil = Date.now() + 100;
+        if (this.hp <= 0) {
+            this.hp = 0;
+            this.defeated = true;
+            hairPoints += 1;
+            showFloatingText('+1 Hair!', this.x, this.y);
+            updateUI();
+            saveGame();
+        }
+    }
+
+    draw() {
+        if (this.defeated) return;
+        const isHit = Date.now() < this.hitFlashUntil;
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        if (this.flipX) ctx.scale(-1, 1);
+
+        // Body
+        ctx.shadowColor = isHit ? '#fff' : 'rgba(0,0,0,0.35)';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = isHit ? '#ffffff' : '#e84040';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 20, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Belly
+        ctx.fillStyle = isHit ? '#eee' : '#f08080';
+        ctx.beginPath();
+        ctx.ellipse(2, 3, 13, 7, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tail fin
+        ctx.fillStyle = isHit ? '#ccc' : '#c02020';
+        ctx.beginPath();
+        ctx.moveTo(-18, 0);
+        ctx.lineTo(-28, -12);
+        ctx.lineTo(-28, 12);
+        ctx.closePath();
+        ctx.fill();
+
+        // Dorsal fin
+        ctx.beginPath();
+        ctx.moveTo(-5, -12);
+        ctx.lineTo(2, -20);
+        ctx.lineTo(9, -12);
+        ctx.closePath();
+        ctx.fill();
+
+        // Mouth (open, showing teeth)
+        ctx.fillStyle = isHit ? '#999' : '#3a0000';
+        ctx.beginPath();
+        ctx.ellipse(20, 2, 7, 5, 0.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Teeth
+        ctx.fillStyle = '#fff';
+        ctx.shadowBlur = 0;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.moveTo(16 + i * 3, -1);
+            ctx.lineTo(17 + i * 3, -5);
+            ctx.lineTo(18 + i * 3, -1);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        // Eye
+        ctx.fillStyle = isHit ? '#fff' : '#ffdd00';
+        ctx.beginPath();
+        ctx.arc(9, -4, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.arc(10, -4, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        // HP bar
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(this.x - 22, this.y - 26, 44, 5);
+        ctx.fillStyle = this.hp === 2 ? '#4caf50' : '#ff5722';
+        ctx.fillRect(this.x - 22, this.y - 26, 44 * (this.hp / this.maxHP), 5);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x - 22, this.y - 26, 44, 5);
+    }
+}
+
+let oceanPiranhas = [];
+
+function spawnOceanPiranhas() {
+    oceanPiranhas = [
+        new Piranha(120, 390),
+        new Piranha(80, 420)
+    ];
+}
+
 function spawnPorcupines() {
     porcupines = [
         new Porcupine(300, 200),
@@ -3587,6 +4098,215 @@ function drawMarsWorld() {
     ctx.fillText('MARS', canvas.width / 2, 25);
 }
 
+// ==================== OCEAN WORLD ====================
+function drawOceanWorld() {
+    if (showingOceanTransition) {
+        ctx.fillStyle = '#001133';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#00aaff';
+        ctx.font = 'bold 72px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('DIVING IN...', canvas.width / 2, canvas.height / 2 - 20);
+        ctx.fillStyle = '#88ddff';
+        ctx.font = 'bold 22px Arial';
+        ctx.fillText('The Abyss Kraken lurks below!', canvas.width / 2, canvas.height / 2 + 50);
+        return;
+    }
+
+    const groundY = 370;
+    const waterEdge = 175;
+
+    // Martian sky (still on Mars coast)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, groundY);
+    skyGrad.addColorStop(0, '#8b2500');
+    skyGrad.addColorStop(0.5, '#c84a1c');
+    skyGrad.addColorStop(1, '#9a3a10');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, canvas.width, groundY);
+
+    // Ocean horizon on left portion of sky
+    const horizonGrad = ctx.createLinearGradient(0, 0, waterEdge + 40, 0);
+    horizonGrad.addColorStop(0, 'rgba(5, 30, 60, 0.85)');
+    horizonGrad.addColorStop(1, 'rgba(5, 30, 60, 0)');
+    ctx.fillStyle = horizonGrad;
+    ctx.fillRect(0, 0, waterEdge + 40, groundY);
+
+    // Deep ocean water (below ground level, left side)
+    const waterGrad = ctx.createLinearGradient(0, groundY, 0, canvas.height);
+    waterGrad.addColorStop(0, '#0a4d6e');
+    waterGrad.addColorStop(1, '#021422');
+    ctx.fillStyle = waterGrad;
+    ctx.fillRect(0, groundY, waterEdge, canvas.height - groundY);
+
+    // Animated wave surface
+    const wt = Date.now() * 0.003;
+    ctx.fillStyle = '#1a7a9a';
+    ctx.beginPath();
+    ctx.moveTo(0, groundY);
+    for (let x = 0; x <= waterEdge + 30; x += 4) {
+        ctx.lineTo(x, groundY - 8 + Math.sin(wt + x * 0.07) * 6);
+    }
+    ctx.lineTo(waterEdge + 30, canvas.height);
+    ctx.lineTo(0, canvas.height);
+    ctx.closePath();
+    ctx.fill();
+
+    // Wave highlight line
+    ctx.strokeStyle = 'rgba(120, 220, 255, 0.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = 0; x <= waterEdge; x += 4) {
+        const wy = groundY - 10 + Math.sin(wt + x * 0.07) * 6;
+        if (x === 0) ctx.moveTo(x, wy); else ctx.lineTo(x, wy);
+    }
+    ctx.stroke();
+
+    // Shoreline rocks
+    ctx.fillStyle = '#5c3a1e';
+    ctx.beginPath(); ctx.ellipse(188, 373, 24, 10, -0.15, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(162, 378, 14, 7, 0.1, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(205, 379, 10, 5, 0.2, 0, Math.PI * 2); ctx.fill();
+
+    // Sandy beach (right of water edge)
+    ctx.fillStyle = '#c2a060';
+    ctx.fillRect(waterEdge, groundY, canvas.width - waterEdge, canvas.height - groundY);
+
+    // Sand texture
+    ctx.fillStyle = '#b08844';
+    for (let i = 0; i < 8; i++) {
+        ctx.beginPath();
+        ctx.ellipse(210 + i * 68, 385 + (i % 3) * 11, 10, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // ---- Scuba Gear Shop (right side) ----
+    const shopCX = 668;
+    const shopTopY = 265;
+    const shopW = 130;
+    const shopH = 105;
+
+    const nearShop = player.x > 590 && player.x < 760 && player.y > 300;
+
+    if (nearShop) { ctx.shadowColor = '#00bbff'; ctx.shadowBlur = 20; }
+
+    // Building walls
+    ctx.fillStyle = nearShop ? '#1a7aa0' : '#145f7a';
+    ctx.fillRect(shopCX - shopW / 2, shopTopY, shopW, shopH);
+    ctx.strokeStyle = nearShop ? '#00bbff' : '#0a4a5f';
+    ctx.lineWidth = nearShop ? 3 : 2;
+    ctx.strokeRect(shopCX - shopW / 2, shopTopY, shopW, shopH);
+
+    // Roof
+    ctx.shadowBlur = nearShop ? 14 : 0;
+    ctx.fillStyle = nearShop ? '#1e9abf' : '#0d6e8a';
+    ctx.beginPath();
+    ctx.moveTo(shopCX - shopW / 2 - 8, shopTopY + 2);
+    ctx.lineTo(shopCX, shopTopY - 32);
+    ctx.lineTo(shopCX + shopW / 2 + 8, shopTopY + 2);
+    ctx.closePath();
+    ctx.fill();
+    if (nearShop) { ctx.strokeStyle = '#00bbff'; ctx.lineWidth = 2; ctx.stroke(); }
+    ctx.shadowBlur = 0;
+
+    // Door
+    ctx.fillStyle = '#042233';
+    ctx.fillRect(shopCX - 19, shopTopY + 58, 38, shopH - 58);
+
+    // Windows
+    ctx.fillStyle = '#aaeeff';
+    ctx.fillRect(shopCX - 48, shopTopY + 14, 26, 20);
+    ctx.fillRect(shopCX + 22, shopTopY + 14, 26, 20);
+
+    // Sign
+    ctx.fillStyle = nearShop ? '#00ddff' : '#33ccff';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('SCUBA GEAR', shopCX, shopTopY - 38);
+
+    // Air tanks outside shop (left side)
+    ctx.fillStyle = '#999';
+    ctx.fillRect(shopCX - shopW / 2 - 18, shopTopY + 48, 12, 50);
+    ctx.fillRect(shopCX - shopW / 2 - 33, shopTopY + 53, 10, 45);
+    ctx.fillStyle = '#ffcc00';
+    ctx.fillRect(shopCX - shopW / 2 - 17, shopTopY + 43, 10, 9);
+    ctx.fillRect(shopCX - shopW / 2 - 32, shopTopY + 49, 8, 8);
+
+    // Shop interaction prompt
+    if (nearShop) {
+        if (!hasScubaGear) {
+            ctx.fillStyle = '#00bbff';
+            ctx.font = 'bold 15px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Press SPACE to grab scuba gear!', canvas.width / 2, canvas.height - 40);
+            if (keys.space) {
+                hasScubaGear = true;
+                showFloatingText('Got scuba gear!', player.x, player.y - 40);
+            }
+        } else {
+            ctx.fillStyle = '#00ff88';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("Scuba gear equipped! Head to the ocean ←", canvas.width / 2, canvas.height - 40);
+        }
+    }
+
+    // ---- Piranhas ----
+    oceanPiranhas.forEach(p => { p.update(); p.draw(); });
+
+    // ---- Ocean entry zone ----
+    const allPiranhaClear = oceanPiranhas.length > 0 && oceanPiranhas.every(p => p.defeated);
+    const nearWater = player.x < 215 && player.y > 340;
+    if (nearWater) {
+        if (!hasScubaGear) {
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('You need scuba gear first! Visit the shop →', canvas.width / 2, canvas.height - 40);
+        } else if (!allPiranhaClear) {
+            ctx.fillStyle = '#ff6644';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Defeat the piranhas first!', canvas.width / 2, canvas.height - 40);
+        } else {
+            ctx.fillStyle = '#00ffcc';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Press SPACE to dive in!', canvas.width / 2, canvas.height - 40);
+            if (keys.space && !showingOceanTransition) {
+                showingOceanTransition = true;
+                showFloatingText('Diving in!', player.x, player.y - 40);
+                setTimeout(() => {
+                    showingOceanTransition = false;
+                    bossProjectiles = [];
+                    player.x = 400;
+                    player.y = 325;
+                    startBossFight();
+                }, 3000);
+            }
+        }
+    }
+
+    // Scuba gear indicator on player
+    if (hasScubaGear) {
+        ctx.fillStyle = '#00bbff';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('[ SCUBA ]', player.x, player.y - 44);
+    }
+
+    // Ocean label
+    ctx.fillStyle = '#88ccff';
+    ctx.font = '12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('← OCEAN', 87, groundY - 16);
+
+    // World label
+    ctx.fillStyle = '#ffaa66';
+    ctx.font = 'bold 18px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('MARS — OCEAN COAST', canvas.width / 2, 25);
+}
+
 // ==================== BOSS MANAGEMENT ====================
 let boss = null;
 
@@ -3598,6 +4318,8 @@ function createBoss(index) {
         case 3: return new MutantHair();
         case 4: return new SpiderSpitBus();
         case 5: return new MarsVolcanoBoss();
+        case 6: return new AbyssKraken();
+        case 7: return new NewbieBighead();
         default: return null;
     }
 }
@@ -3656,9 +4378,74 @@ function gameLoop() {
             player.update(deltaTime);
             player.draw();
         }
+    } else if (gameState === GAME_STATES.OCEAN_WORLD) {
+        drawOceanWorld();
+        if (!showingOceanTransition) {
+            player.update(deltaTime);
+            player.draw();
+        }
     } else if (gameState === GAME_STATES.FIGHT) {
-        // Mars boss fight: custom Mars arena background
-        if (currentBoss === 5) {
+        // Custom arena backgrounds
+        if (currentBoss === 6 || currentBoss === 7) {
+            // Underwater arena — deep ocean
+            const oceanArenaGrad = ctx.createLinearGradient(ARENA.x, ARENA.y, ARENA.x, ARENA.y + ARENA.height);
+            oceanArenaGrad.addColorStop(0, '#001830');
+            oceanArenaGrad.addColorStop(0.6, '#002a50');
+            oceanArenaGrad.addColorStop(1, '#000e1a');
+            ctx.fillStyle = oceanArenaGrad;
+            ctx.fillRect(ARENA.x, ARENA.y, ARENA.width, ARENA.height);
+
+            // Sandy ocean floor
+            ctx.fillStyle = '#7a6040';
+            ctx.fillRect(ARENA.x, ARENA.y + ARENA.height - 45, ARENA.width, 45);
+            ctx.fillStyle = '#8b7050';
+            for (let i = 0; i < 10; i++) {
+                ctx.beginPath();
+                ctx.ellipse(ARENA.x + 30 + i * 70, ARENA.y + ARENA.height - 40, 16, 6, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Seaweed left
+            for (let i = 0; i < 5; i++) {
+                const sx = ARENA.x + 18 + i * 18;
+                const sy = ARENA.y + ARENA.height - 45;
+                const wave = Math.sin(Date.now() * 0.002 + i * 1.1) * 9;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.quadraticCurveTo(sx + wave, sy - 35, sx + wave * 1.4, sy - 65);
+                ctx.strokeStyle = '#1a6630';
+                ctx.lineWidth = 5;
+                ctx.stroke();
+            }
+            // Seaweed right
+            for (let i = 0; i < 5; i++) {
+                const sx = ARENA.x + ARENA.width - 18 - i * 18;
+                const sy = ARENA.y + ARENA.height - 45;
+                const wave = Math.sin(Date.now() * 0.002 + i * 1.1 + 2) * 9;
+                ctx.beginPath();
+                ctx.moveTo(sx, sy);
+                ctx.quadraticCurveTo(sx - wave, sy - 35, sx - wave * 1.4, sy - 65);
+                ctx.strokeStyle = '#1a6630';
+                ctx.lineWidth = 5;
+                ctx.stroke();
+            }
+
+            // Rising bubbles
+            ctx.fillStyle = 'rgba(140, 210, 255, 0.35)';
+            for (let i = 0; i < 10; i++) {
+                const t = ((Date.now() * 0.0004 + i * 0.1) % 1);
+                const bx = ARENA.x + 50 + (i * 71) % (ARENA.width - 100);
+                const by = ARENA.y + ARENA.height - 55 - t * (ARENA.height - 80);
+                ctx.beginPath();
+                ctx.arc(bx, by, 3 + (i % 3), 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Arena border
+            ctx.strokeStyle = '#0099cc';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(ARENA.x, ARENA.y, ARENA.width, ARENA.height);
+        } else if (currentBoss === 5) {
             // Mars sky
             const marsArenaGrad = ctx.createLinearGradient(ARENA.x, ARENA.y, ARENA.x, ARENA.y + ARENA.height);
             marsArenaGrad.addColorStop(0, '#8b2500');
@@ -3747,11 +4534,23 @@ function gameLoop() {
 
 // ==================== EVENT LISTENERS ====================
 document.getElementById('start-button').addEventListener('click', () => {
-    if (currentBoss >= 6) {
+    if (currentBoss >= 8) {
         // Already beaten the game - show win screen
         gameState = GAME_STATES.WIN;
         showScreen('win-screen');
         document.getElementById('final-hair-points').textContent = `Total Hair Points: ${hairPoints}`;
+    } else if (currentBoss === 7) {
+        // Was fighting Newbie Bighead - retry
+        startBossFight();
+    } else if (currentBoss === 6) {
+        // Was in or fighting Abyss Kraken - send to Ocean World
+        hasScubaGear = false;
+        showingOceanTransition = false;
+        player.x = 400;
+        player.y = 380;
+        gameState = GAME_STATES.OCEAN_WORLD;
+        spawnOceanPiranhas();
+        hideAllScreens();
     } else if (currentBoss === 5) {
         // Was in or fighting Volcano Beast - send to Mars World
         marsPhase = 'explore';
@@ -3823,7 +4622,10 @@ document.getElementById('restart-button').addEventListener('click', () => {
     player.reset();
     hideAllScreens();
 
-    if (previousGameState === GAME_STATES.FIGHT && currentBoss === 5) {
+    if (previousGameState === GAME_STATES.FIGHT && (currentBoss === 6 || currentBoss === 7)) {
+        // Died against Abyss Kraken or Newbie Bighead - retry the fight
+        startBossFight();
+    } else if (previousGameState === GAME_STATES.FIGHT && currentBoss === 5) {
         // Died against Volcano Beast - retry the fight
         startBossFight();
     } else if (previousGameState === GAME_STATES.FIGHT && currentBoss === 4) {
@@ -3978,6 +4780,11 @@ function resetGame(keepUpgrades = false) {
     marsPhase = 'explore';
     marsButtonPressed = false;
     showingMarsTransition = false;
+
+    // Reset Ocean world state
+    hasScubaGear = false;
+    showingOceanTransition = false;
+    oceanPiranhas = [];
 
     if (!keepUpgrades) {
         // Full reset - lose everything
